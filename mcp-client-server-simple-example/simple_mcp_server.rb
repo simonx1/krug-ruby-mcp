@@ -4,6 +4,7 @@
 require 'bundler/setup'
 require 'mcp'
 require 'mcp/server/transports/stdio_transport'
+require 'json'
 
 # Set up the server
 server = MCP::Server.new(
@@ -49,6 +50,65 @@ server.define_tool(
       text: "Order created successfully! Order ID: #{order[:id]}, Total: $#{order[:total_amount].round(2)}"
     }
   ])
+end
+
+# Define available resources
+server.resources_list_handler do |_params|
+  [
+    MCP::Resource.new(
+      uri: 'order://list',
+      name: 'Order List',
+      description: 'List of all orders in the system',
+      mime_type: 'application/json'
+    ).to_h,
+    MCP::Resource.new(
+      uri: 'order://stats',
+      name: 'Order Statistics',
+      description: 'Statistics about orders in the system',
+      mime_type: 'text/plain'
+    ).to_h
+  ]
+end
+
+# Handle resource reading
+server.resources_read_handler do |params|
+  case params[:uri]
+  when 'order://list'
+    [{
+      uri: params[:uri],
+      mimeType: 'application/json',
+      text: JSON.pretty_generate({
+        total_orders: orders.length,
+        orders: orders
+      })
+    }]
+  when 'order://stats'
+    total_revenue = orders.sum { |o| o[:total_amount] }
+    total_quantity = orders.sum { |o| o[:quantity] }
+
+    [{
+      uri: params[:uri],
+      mimeType: 'text/plain',
+      text: <<~STATS
+        Order Management System Statistics
+        ===================================
+        Total Orders: #{orders.length}
+        Total Revenue: $#{total_revenue.round(2)}
+        Total Items Sold: #{total_quantity}
+        Average Order Value: $#{orders.empty? ? 0 : (total_revenue / orders.length).round(2)}
+
+        Top Product IDs:
+        #{orders.group_by { |o| o[:product_id] }
+                .transform_values(&:length)
+                .sort_by { |_, count| -count }
+                .take(5)
+                .map { |id, count| "  - Product #{id}: #{count} orders" }
+                .join("\n")}
+      STATS
+    }]
+  else
+    raise "Resource not found: #{params[:uri]}"
+  end
 end
 
 # Create and start the stdio transport

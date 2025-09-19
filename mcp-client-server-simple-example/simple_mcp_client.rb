@@ -68,6 +68,35 @@ begin
   })
   puts "Result: #{result3.inspect}"
 
+  # List available resources
+  puts "\n=== Available Resources ==="
+  resources_result = client.list_resources
+  resources = resources_result['resources'] || []
+  resources.each do |resource|
+    puts "- #{resource.name} (#{resource.uri})"
+    puts "  Description: #{resource.description}"
+    puts "  MIME Type: #{resource.mime_type}"
+  end
+
+  # Read resources
+  puts "\n=== Reading Resources ==="
+
+  # Read order list resource
+  puts "\nReading order list..."
+  order_list = client.read_resource('order://list')
+  puts "Order List Content:"
+  order_list.each do |content|
+    puts content.text
+  end
+
+  # Read order statistics resource
+  puts "\nReading order statistics..."
+  stats = client.read_resource('order://stats')
+  puts "Order Statistics:"
+  stats.each do |content|
+    puts content.text
+  end
+
   puts "\n=== All tests completed successfully! ==="
 
 rescue StandardError => e
